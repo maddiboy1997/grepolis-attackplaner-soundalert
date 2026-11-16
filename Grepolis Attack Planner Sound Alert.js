@@ -4,9 +4,9 @@
 // @namespace    https://grepolis.com/
 // @version      1.3.1
 // @description  Custom sound alerts for planned attacks
-// @author       Dominique
-// @updateURL
-// @downloadURL
+// @author       jp1102
+// @updateURL    https://raw.githubusercontent.com/maddiboy1997/grepolis-attackplaner-soundalert/main/Grepolis%20Attack%20Planner%20Sound%20Alert.js
+// @downloadURL  https://raw.githubusercontent.com/maddiboy1997/grepolis-attackplaner-soundalert/main/Grepolis%20Attack%20Planner%20Sound%20Alert.js
 // @match        https://*.grepolis.com/game/*
 // @icon         https://www.grepolis.com/favicon.ico
 // @homepageURL  https://grepolis.com/
