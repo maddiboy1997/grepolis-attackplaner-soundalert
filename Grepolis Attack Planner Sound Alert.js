@@ -2,8 +2,8 @@
 // ==UserScript==
 // @name         Grepolis Attack Planner Sound Alert
 // @namespace    https://grepolis.com/
-// @version      1.3.1
-// @description  Custom sound alerts for planned attacks
+// @version      1.3.2
+// @description  Custom sound alerts for planned attacks. Privacy policy: German: https://github.com/maddiboy1997/grepolis-attackplaner-soundalert/blob/main/PRIVACY-DE.md | English: https://github.com/maddiboy1997/grepolis-attackplaner-soundalert/blob/main/PRIVACY-EN.md
 // @author       jp1102
 // @updateURL    https://raw.githubusercontent.com/maddiboy1997/grepolis-attackplaner-soundalert/main/Grepolis%20Attack%20Planner%20Sound%20Alert.js
 // @downloadURL  https://raw.githubusercontent.com/maddiboy1997/grepolis-attackplaner-soundalert/main/Grepolis%20Attack%20Planner%20Sound%20Alert.js
@@ -14,7 +14,6 @@
 // @sandbox      raw
 // @grant        none
 // ==/UserScript==
-
 (function () {
     'use strict';
 
@@ -26,6 +25,27 @@
     const STORAGE_SOUND = 'gp_attack_sound_selection';
     const STORAGE_CUSTOM_URL = 'gp_attack_sound_custom_url';
 
+    const PRIVACY_URLS = {
+        de: 'https://github.com/maddiboy1997/grepolis-attackplaner-soundalert/blob/main/PRIVACY-DE.md',
+        en: 'https://github.com/maddiboy1997/grepolis-attackplaner-soundalert/blob/main/PRIVACY-EN.md'
+    };
+
+    function getPrivacyURL() {
+        const isGermanServer = /^de\d+\.grepolis\.com$/i.test(
+            window.location.hostname
+        );
+
+        return isGermanServer ? PRIVACY_URLS.de : PRIVACY_URLS.en;
+    }
+
+    function getPrivacyLinkText() {
+        const isGermanServer = /^de\d+\.grepolis\.com$/i.test(
+            window.location.hostname
+        );
+
+        return isGermanServer ? 'Datenschutzerklärung' : 'Privacy Policy';
+    }
+
     const SOUNDS = {
         sound1: 'https://gpde.innogamescdn.com/audio/effects/000001_Angriff_Version_01.ogg',
         sound2: 'https://gpzz.innogamescdn.com/audio/click/005009_Gold_kaufen_Version_01.ogg',
@@ -35,7 +55,6 @@
     // --------------------------------------------------
     // Settings
     // --------------------------------------------------
-
     let selectedSound = localStorage.getItem(STORAGE_SOUND) || 'sound1';
     let customSoundURL = localStorage.getItem(STORAGE_CUSTOM_URL) || '';
 
@@ -51,7 +70,6 @@
     // --------------------------------------------------
     // Audio
     // --------------------------------------------------
-
     const alertSound = new Audio();
 
     alertSound.preload = 'auto';
@@ -111,7 +129,6 @@
             alertSound.muted = false;
 
             audioUnlocked = true;
-
             console.log('[Grepolis Sound] Audio unlocked.');
         }).catch(() => {
             alertSound.muted = false;
@@ -124,7 +141,6 @@
     // --------------------------------------------------
     // Sound selection UI
     // --------------------------------------------------
-
     function createSoundSettings() {
         const windowElement = document.getElementById('gpwnd_1000');
         if (!windowElement) return;
@@ -199,13 +215,30 @@
                 display: selectedSound === 'custom' ? '' : 'none'
             });
 
+            // Privacy policy link
+            const privacyLink = document.createElement('a');
+            privacyLink.id = 'gp-attack-sound-privacy-link';
+            privacyLink.href = getPrivacyURL();
+            privacyLink.textContent = getPrivacyLinkText();
+            privacyLink.target = '_blank';
+            privacyLink.rel = 'noopener noreferrer';
+
+            Object.assign(privacyLink.style, {
+                color: '#ffcc66',
+                textDecoration: 'underline',
+                cursor: 'pointer',
+                display: selectedSound === 'custom' ? '' : 'none'
+            });
+
             select.addEventListener('change', () => {
                 selectedSound = select.value;
 
                 localStorage.setItem(STORAGE_SOUND, selectedSound);
 
-                customInput.style.display =
-                    selectedSound === 'custom' ? '' : 'none';
+                const isCustom = selectedSound === 'custom';
+
+                customInput.style.display = isCustom ? '' : 'none';
+                privacyLink.style.display = isCustom ? '' : 'none';
 
                 updateSound();
             });
@@ -226,6 +259,7 @@
             container.appendChild(label);
             container.appendChild(select);
             container.appendChild(customInput);
+            container.appendChild(privacyLink);
         }
 
         buttonsBar.appendChild(container);
@@ -260,7 +294,6 @@
     // --------------------------------------------------
     // Notification processing
     // --------------------------------------------------
-
     function processResponse(response) {
         if (!response || !response.json) return;
 
