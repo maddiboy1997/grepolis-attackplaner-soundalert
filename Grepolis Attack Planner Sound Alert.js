@@ -2,8 +2,8 @@
 // ==UserScript==
 // @name         Grepolis Attack Planner Sound Alert
 // @namespace    https://grepolis.com/
-// @version      1.3.2
-// @description  Custom sound alerts for planned attacks. Privacy policy: German: https://github.com/maddiboy1997/grepolis-attackplaner-soundalert/blob/main/PRIVACY-DE.md | English: https://github.com/maddiboy1997/grepolis-attackplaner-soundalert/blob/main/PRIVACY-EN.md
+// @version      1.3.3
+// @description Custom sound alerts for planned attacks. External audio hosts receive your IP address and may receive technical connection information. Custom audio URLs may contact third-party servers. HTTP URLs require explicit confirmation. Privacy Policy: https://github.com/maddiboy1997/grepolis-attackplaner-soundalert
 // @author       jp1102
 // @updateURL    https://raw.githubusercontent.com/maddiboy1997/grepolis-attackplaner-soundalert/main/Grepolis%20Attack%20Planner%20Sound%20Alert.js
 // @downloadURL  https://raw.githubusercontent.com/maddiboy1997/grepolis-attackplaner-soundalert/main/Grepolis%20Attack%20Planner%20Sound%20Alert.js
@@ -14,6 +14,7 @@
 // @sandbox      raw
 // @grant        none
 // ==/UserScript==
+
 (function () {
     'use strict';
 
@@ -24,6 +25,7 @@
 
     const STORAGE_SOUND = 'gp_attack_sound_selection';
     const STORAGE_CUSTOM_URL = 'gp_attack_sound_custom_url';
+    const STORAGE_CUSTOM_URL_APPROVED = 'gp_attack_sound_custom_url_approved';
 
     const PRIVACY_URLS = {
         de: 'https://github.com/maddiboy1997/grepolis-attackplaner-soundalert/blob/main/PRIVACY-DE.md',
@@ -55,8 +57,10 @@
     // --------------------------------------------------
     // Settings
     // --------------------------------------------------
+
     let selectedSound = localStorage.getItem(STORAGE_SOUND) || 'sound1';
     let customSoundURL = localStorage.getItem(STORAGE_CUSTOM_URL) || '';
+    let approvedCustomURL = localStorage.getItem(STORAGE_CUSTOM_URL_APPROVED) || '';
 
     if (!['sound1', 'sound2', 'sound3', 'custom'].includes(selectedSound)) {
         selectedSound = 'sound1';
@@ -68,18 +72,57 @@
     const seenNotifications = new Set();
 
     // --------------------------------------------------
+    // Custom URL validation
+    // --------------------------------------------------
+
+    function parseCustomURL(value) {
+        try {
+            const url = new URL(value.trim());
+
+            if (!['http:', 'https:'].includes(url.protocol)) {
+                return null;
+            }
+
+            if (!url.hostname) {
+                return null;
+            }
+
+            return url;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function getSoundURL() {
+        if (selectedSound !== 'custom') {
+            return SOUNDS[selectedSound];
+        }
+
+        const parsedURL = parseCustomURL(customSoundURL);
+
+        if (!parsedURL) {
+            return '';
+        }
+
+        // Previously stored HTTP URLs must be explicitly approved.
+        if (
+            parsedURL.protocol === 'http:' &&
+            approvedCustomURL !== parsedURL.href
+        ) {
+            return '';
+        }
+
+        return parsedURL.href;
+    }
+
+    // --------------------------------------------------
     // Audio
     // --------------------------------------------------
+
     const alertSound = new Audio();
 
     alertSound.preload = 'auto';
     alertSound.volume = SOUND_VOLUME;
-
-    function getSoundURL() {
-        return selectedSound === 'custom'
-            ? customSoundURL.trim()
-            : SOUNDS[selectedSound];
-    }
 
     function updateSound() {
         const url = getSoundURL();
@@ -141,11 +184,11 @@
     // --------------------------------------------------
     // Sound selection UI
     // --------------------------------------------------
+
     function createSoundSettings() {
         const windowElement = document.getElementById('gpwnd_1000');
         if (!windowElement) return;
 
-        // Search for the attack planner button bar.
         const buttonsBar =
             windowElement.querySelector('.plan_details_screen .buttons_bar') ||
             windowElement.querySelector('.game_inner_box.attack_planner .buttons_bar') ||
@@ -215,6 +258,18 @@
                 display: selectedSound === 'custom' ? '' : 'none'
             });
 
+            // Apply button
+            const applyButton = document.createElement('button');
+            applyButton.id = 'gp-attack-sound-apply';
+            applyButton.type = 'button';
+            applyButton.textContent = 'Übernehmen';
+
+            Object.assign(applyButton.style, {
+                padding: '3px 7px',
+                cursor: 'pointer',
+                display: selectedSound === 'custom' ? '' : 'none'
+            });
+
             // Privacy policy link
             const privacyLink = document.createElement('a');
             privacyLink.id = 'gp-attack-sound-privacy-link';
@@ -224,12 +279,13 @@
             privacyLink.rel = 'noopener noreferrer';
 
             Object.assign(privacyLink.style, {
-                color: '#ffcc66',
+                color: '#ff3333',
                 textDecoration: 'underline',
                 cursor: 'pointer',
                 display: selectedSound === 'custom' ? '' : 'none'
             });
 
+            // Sound selection
             select.addEventListener('change', () => {
                 selectedSound = select.value;
 
@@ -238,27 +294,60 @@
                 const isCustom = selectedSound === 'custom';
 
                 customInput.style.display = isCustom ? '' : 'none';
+                applyButton.style.display = isCustom ? '' : 'none';
                 privacyLink.style.display = isCustom ? '' : 'none';
 
                 updateSound();
             });
 
-            customInput.addEventListener('change', () => {
-                customSoundURL = customInput.value.trim();
+            // Apply custom URL
+            applyButton.addEventListener('click', () => {
+                const parsedURL = parseCustomURL(customInput.value);
+
+                if (!parsedURL) {
+                    alert('Please enter a valid HTTP or HTTPS URL.');
+                    return;
+                }
+
+                // HTTP requires explicit user confirmation.
+                if (parsedURL.protocol === 'http:') {
+                    const confirmed = confirm(
+                        'Warning: This audio URL uses an unencrypted HTTP connection.\n\n' +
+                        'The connection is not encrypted. Other parties may be able to intercept or modify the transmitted data.\n\n' +
+                        'The server hosting the audio file can receive your IP address and technical connection information.\n\n' +
+                        'Do you want to apply this URL anyway?'
+                    );
+
+                    if (!confirmed) {
+                        return;
+                    }
+                }
+
+                // Only save the URL after validation and confirmation.
+                customSoundURL = parsedURL.href;
+                approvedCustomURL = parsedURL.href;
 
                 localStorage.setItem(
                     STORAGE_CUSTOM_URL,
                     customSoundURL
                 );
 
-                if (selectedSound === 'custom') {
-                    updateSound();
-                }
+                localStorage.setItem(
+                    STORAGE_CUSTOM_URL_APPROVED,
+                    approvedCustomURL
+                );
+
+                customInput.value = customSoundURL;
+
+                updateSound();
+
+                console.log('[Grepolis Sound] Custom URL applied:', customSoundURL);
             });
 
             container.appendChild(label);
             container.appendChild(select);
             container.appendChild(customInput);
+            container.appendChild(applyButton);
             container.appendChild(privacyLink);
         }
 
@@ -294,6 +383,7 @@
     // --------------------------------------------------
     // Notification processing
     // --------------------------------------------------
+
     function processResponse(response) {
         if (!response || !response.json) return;
 
